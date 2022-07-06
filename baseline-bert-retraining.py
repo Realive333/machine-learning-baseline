@@ -68,7 +68,7 @@ def main():
     optimizer = AdamW(model.parameters(), lr=2e-5, eps= 1e-8)
 
     train_loss = []
-    valid_loss = []
+    valid_loss = [512]
 
     torch.cuda.empty_cache()
     encoding_dataset.set_format("torch")
@@ -103,19 +103,19 @@ def main():
         return val_loss
 
     st_time = time.time()
-    early_stop_loss = 1000
-    early_stop_threshold = 0
+    early_stop_loss = 0
+    early_stop_counter = 0
     for epoch in range(MAX_EPOCH):
         train_ = train(model)
         valid_ = validation(model)
         train_loss.append(train_)
         valid_loss.append(valid_)
-        if valid_ < early_stop_loss:
-            early_stop_loss = valid_
+        if valid_loss[epoch] < valid_loss[epoch-1]:
+                early_stop_loss = valid_loss[epoch]
         else:
-            early_stop_threshold += 1
-            if early_stop_threshold == PATIENCE:
-                print(f'=== early stop at Epoch: {epoch}, valid loss: {valid_:.4f}')
+            early_stop_counter += 1
+            if early_stop_counter == PATIENCE:
+                print(f'=== early stop at Epoch: {epoch}, valid loss: {valid_:.4f}, , early stop loss: {early_stop_loss:.4f} ===')
                 break
         print(f'Epoch = {epoch} ===> train loss: {train_:.4f}, valid loss: {valid_:.4f}')
         
@@ -123,7 +123,7 @@ def main():
     print(f'\ntraining time: {t_time}\n')
 
     str_date = datetime.today().strftime('%Y-%m-%d')
-    model.save_pretrained(f'{ENV_PATH}/results/{TARGET_LABEL}/{str_date}/BERT')
+    model.save_pretrained(f'{ENV_PATH}/results/BERT/{TARGET_LABEL}/{str_date}/BERT')
     
     try_count = 0
     correct_count = 0
@@ -149,7 +149,7 @@ def main():
     report_df.applymap('{:.4f}'.format).to_csv(f'{ENV_PATH}/results/{TARGET_LABEL}/{str_date}/result.csv')
     acc = report['accuracy']
     
-    with open(f'{ENV_PATH}/results/{str_date}.jsonl', 'a+', encoding='utf-8') as file:
+    with open(f'{ENV_PATH}/results/BERT/{str_date}.jsonl', 'a+', encoding='utf-8') as file:
         now = datetime.now()
         str_time = now.strftime("%Y-%m-%d %H:%M:%S")
         data = {"label": TARGET_LABEL, "time": str_time, "training time": t_time, "total": total_count, "accuracy": float("{:.4f}".format(acc))}

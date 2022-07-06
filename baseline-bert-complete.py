@@ -96,7 +96,6 @@ def main():
     works = []
     filenames = next(walk(f"{ENV_PATH}/cleaned"),  (None, None, []))[2]
 
-    ### USE ONLY FOR TESTING ###
     for filename in filenames:
         datas = load_jsonl(f"{ENV_PATH}/cleaned/{filename}")
 
@@ -175,7 +174,7 @@ def main():
     optimizer = AdamW(model.parameters(), lr=2e-5, eps= 1e-8)
 
     train_loss = []
-    valid_loss = []
+    valid_loss = [512]
 
     torch.cuda.empty_cache()
     
@@ -189,8 +188,6 @@ def main():
             optimizer.zero_grad()
             outputs = model(b_input_ids, token_type_ids = None, attention_mask = b_input_mask, labels = b_labels)
             loss = outputs[0]
-            #print(loss)
-
             loss.backward()
             torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
             optimizer.step()
@@ -211,19 +208,19 @@ def main():
         return val_loss
 
     st_time = time.time()
-    early_stop_loss = 1000
-    early_stop_threshold = 0
+    early_stop_loss = 0
+    early_stop_counter = 0
     for epoch in range(MAX_EPOCH):
         train_ = train(model)
         valid_ = validation(model)
         train_loss.append(train_)
         valid_loss.append(valid_)
-        if valid_ < early_stop_loss:
-            early_stop_loss = valid_
+        if valid_loss[epoch] < valid_loss[epoch-1]:
+            early_stop_loss = valid_loss[epoch]
         else:
-            early_stop_threshold += 1
-            if early_stop_threshold == PATIENCE:
-                print(f'=== early stop at Epoch: {epoch}, valid loss: {valid_:.4f}')
+            early_stop_counter += 1
+            if early_stop_counter == PATIENCE:
+                print(f'=== early stop at Epoch: {epoch}, valid loss: {valid_:.4f}, , early stop loss: {early_stop_loss:.4f} ===')
                 break            
         print(f'Epoch = {epoch} ===> train loss: {train_:.4f}, valid loss: {valid_:.4f}')
 
